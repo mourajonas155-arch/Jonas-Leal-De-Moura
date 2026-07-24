@@ -1,1 +1,133 @@
+ FOREIGN KEY (cpf) REFERENCES usuario(cpf)
+);
+
+CREATE SEQUENCE funcionario_seq START 1;
+
+CREATE TABLE funcionario (
+    matricula VARCHAR(20) PRIMARY KEY DEFAULT ('F' || LPAD(nextval('funcionario_seq')::TEXT, 3, '0')),
+    matricula SERIAL PRIMARY KEY,
+    nome VARCHAR(100) NOT NULL,
+    salario DECIMAL(10,2) NOT NULL,
+    cargo VARCHAR(50) NOT NULL
+@@ -74,7 +72,7 @@ CREATE TABLE emprestimo (
+    data_devolucao_prevista DATE NOT NULL,
+    data_retirada DATE NOT NULL,
+    cpf VARCHAR(11) NOT NULL,
+    matricula VARCHAR(20) NOT NULL,
+    matricula INTEGER NOT NULL,
+    FOREIGN KEY (cpf) REFERENCES usuario(cpf),
+    FOREIGN KEY (matricula) REFERENCES funcionario(matricula)
+);
+@@ -94,111 +92,4 @@ CREATE TABLE multa (
+    status_pagamento VARCHAR(20) NOT NULL DEFAULT 'pendente',
+    id_emprestimo INTEGER NOT NULL,
+    FOREIGN KEY (id_emprestimo) REFERENCES emprestimo(id_emprestimo)
+);
+
+-- -----------------------------------------------------------
+-- Dados de Exemplo
+-- -----------------------------------------------------------
+
+INSERT INTO usuario (cpf, nome, data_nascimento, rua, numero, bairro, cep) VALUES
+('12345678901', 'Joao Silva', '1990-05-15', 'Rua A', '100', 'Centro', '64000000'),
+('98765432101', 'Maria Santos', '1985-08-22', 'Rua B', '200', 'Jardim', '64000001'),
+('11122233344', 'Carlos Pereira', '2000-01-10', 'Rua C', '300', 'Liberdade', '64000002');
+
+INSERT INTO telefone (cpf, numero_telefone) VALUES
+('12345678901', '89999990001'),
+('12345678901', '89999990002'),
+('98765432101', '89999990003'),
+('11122233344', '89999990004');
+
+INSERT INTO funcionario (matricula, nome, salario, cargo) VALUES
+('F001', 'Ana Costa', 3500.00, 'Bibliotecaria'),
+('F002', 'Pedro Lima', 2500.00, 'Assistente'),
+('F003', 'Lucia Alves', 4500.00, 'Gerente');
+
+INSERT INTO fornecedor (cnpj, razao_social, email) VALUES
+('12345678000199', 'Editora Alpha Ltda', 'contato@alpha.com'),
+('98765432000188', 'Distribuidora Beta S.A.', 'vendas@beta.com');
+
+INSERT INTO livro (isbn, titulo, editora, ano_publicacao, qtd_exemplares, cnpj) VALUES
+('9781234567890', 'Banco de Dados Moderno', 'Alpha Tech', 2023, 10, '12345678000199'),
+('9789876543210', 'Programacao em Python', 'Beta Books', 2024, 5, '98765432000188'),
+('9785555555555', 'Redes de Computadores', 'Alpha Tech', 2022, 8, '12345678000199'),
+('9786666666666', 'Inteligencia Artificial', 'Beta Books', 2025, 3, '98765432000188');
+
+INSERT INTO autor (isbn, nome_autor) VALUES
+('9781234567890', 'Carlos Eduardo'),
+('9789876543210', 'Ana Beatriz'),
+('9785555555555', 'Roberto Almeida'),
+('9786666666666', 'Fernanda Lima');
+
+INSERT INTO categoria (isbn, nome_categoria) VALUES
+('9781234567890', 'Tecnologia'),
+('9789876543210', 'Programacao'),
+('9785555555555', 'Redes'),
+('9786666666666', 'IA');
+
+INSERT INTO emprestimo (data_devolucao_real, status, data_devolucao_prevista, data_retirada, cpf, matricula) VALUES
+(NULL, 'ativo', '2026-07-20', '2026-07-10', '12345678901', 'F001'),
+('2026-07-09', 'concluido', '2026-07-15', '2026-07-01', '98765432101', 'F002'),
+(NULL, 'ativo', '2026-07-25', '2026-07-12', '11122233344', 'F001'),
+('2026-07-08', 'concluido', '2026-07-10', '2026-06-28', '12345678901', 'F003');
+
+INSERT INTO contem (id_emprestimo, isbn, qtd_emprestada) VALUES
+(1, '9781234567890', 2),
+(2, '9789876543210', 1),
+(3, '9785555555555', 1),
+(4, '9786666666666', 1),
+(4, '9781234567890', 1);
+
+INSERT INTO multa (valor, status_pagamento, id_emprestimo) VALUES
+(15.00, 'pendente', 2),
+(5.50, 'pago', 4);
+
+Consultas com JOIN e GROUP BY (requisitos do trabalho)
+-- -----------------------------------------------------------
+
+-- JOIN: Emprestimos com dados do usuario e funcionario
+SELECT
+    e.id_emprestimo,
+    u.nome AS usuario,
+    f.nome AS funcionario,
+    e.data_retirada,
+    e.data_devolucao_prevista,
+    e.status
+FROM emprestimo e
+JOIN usuario u ON e.cpf = u.cpf
+JOIN funcionario f ON e.matricula = f.matricula;
+
+-- GROUP BY: Livros mais emprestados
+SELECT
+    l.isbn,
+    l.titulo,
+    COUNT(c.id_emprestimo) AS total_emprestimos
+FROM livro l
+LEFT JOIN contem c ON l.isbn = c.isbn
+GROUP BY l.isbn, l.titulo
+ORDER BY total_emprestimos DESC;
+
+-- JOIN + GROUP BY: Total de multas por usuario
+SELECT
+    u.cpf,
+    u.nome,
+    COUNT(m.id_multa) AS qtd_multas,
+    SUM(m.valor) AS valor_total_multas
+FROM usuario u
+JOIN emprestimo e ON u.cpf = e.cpf
+JOIN multa m ON e.id_emprestimo = m.id_emprestimo
+GROUP BY u.cpf, u.nome
+ORDER BY valor_total_multas DESC;
+
+-- Relatorio de livros por fornecedor (JOIN + GROUP BY)
+SELECT
+    f.cnpj,
+    f.razao_social,
+    COUNT(l.isbn) AS qtd_livros,
+    SUM(l.qtd_exemplares) AS total_exemplares
+FROM fornecedor f
+LEFT JOIN livro l ON f.cnpj = l.cnpj
+GROUP BY f.cnpj, f.razao_social;
+);
 
