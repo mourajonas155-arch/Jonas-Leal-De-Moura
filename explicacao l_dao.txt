@@ -1,0 +1,127 @@
++ EXPLICACAO DO PADRAO DAO -- BIBLIOTECH
++
++1. O QUE E DAO?
+
++DAO (Data Access Object) e um padrao de projeto que tem como objetivo
++separar a logica de acesso a dados (SQL) da logica de negocios e da
++interface com o usuario. Cada entidade do banco de dados possui sua
++propria classe DAO, que centraliza todas as operacoes de banco
++relacionadas a aquela entidade.
+
++Isso traz organizacao, reutilizacao de codigo, facil manutencao e
++maior seguranca contra SQL injection.
+
++2. ESTRUTURA DAS PASTAS
+
++biblitech/
++   sql/
+
+   biblitech.sql         # Script completo do banco PostgreSQL
+   src/
+      config.py             # Configuracao e conexao com o banco
+      main.py               # Aplicacao principal com menu interativo
+      models/               # Representacao das tabelas em Python
+      dao/                  # Classes DAO com operacoes CRUD
+
+3. MODELOS (src/models/)
+
+Cada classe do pacote models representa uma tabela do banco de dados.
+Usamos @dataclass do Python, que gera automaticamente o construtor
+e outros metodos padrao, tornando o codigo mais limpo e legivel.
+
+Lista de modelos e suas funcoes no sistema:
+
+   Usuario      - Pessoa cadastrada que pega livros emprestados
+   Telefone     - Telefones de contato do usuario
+   Funcionario  - Funcionario da biblioteca que registra emprestimos
+   Fornecedor   - Empresa que fornece os livros
+   Livro        - Livro do acervo da biblioteca
+   Autor        - Autor do livro (um livro pode ter varios)
+   Categoria    - Categoria do livro (um livro pode ter varias)
+   Emprestimo   - Registro de emprestimo de livros a um usuario
+   Contem       - Relaciona quais livros estao em cada emprestimo
+   Multa        - Multa gerada por atraso na devolucao
+
+4. DAOs (src/dao/)
+
+Cada DAO implementa os quatro metodos basicos do CRUD:
+
+   insert(obj)       - Insere um novo registro no banco
+   get_by_id(chave)  - Busca um registro pela chave primaria
+   get_all()         - Retorna todos os registros da tabela
+   update(obj)       - Atualiza um registro existente
+   delete(id)        - Exclui um registro pela chave primaria
+
+Metodos adicionais foram criados para funcionalidades especificas:
+   get_by_cpf(cpf)   - Busca emprestimos/multas pelo CPF do usuario
+   relatorio_join()  - Exibe emprestimos com dados do usuario/funcionario
+   relatorio_group_by() - Exibe livros mais emprestados (com GROUP BY)
+   relatorio_multas_por_usuario() - Total de multas agrupado por usuario
+
+Estrutura padrao de cada metodo DAO:
+
+   def insert(self, objeto):
+       conn = get_connection()         # Abre conexao com o banco
+       cur = conn.cursor()             # Cria cursor para executar SQL
+       cur.execute("SQL com %s",       # Consulta parametrizada
+                   (atributos))        # Valores separados (seguranca)
+       conn.commit()                   # Confirma a transacao
+       cur.close()                     # Fecha o cursor
+       conn.close()                    # Fecha a conexao
+
+5. CONEXAO COM O BANCO (src/config.py)
+
+A conexao esta centralizada em um unico arquivo:
+
+   DB_CONFIG = {
+       "dbname": "biblitech",
+       "user": "postgres",
+       "password": "postgres",
+       "host": "localhost",
+       "port": "5432",
+   }
+
+   def get_connection():
+       return psycopg2.connect(**DB_CONFIG)
+
+Isso facilita a manutencao: se precisar mudar a senha ou o host,
+altera-se em um unico lugar.
+
+6. VANTAGENS DO PADRAO DAO
+
+- Organizacao: cada entidade tem seu proprio arquivo, facilitando
+     a navegacao no codigo.
+
+   - Reutilizacao: os metodos CRUD podem ser chamados de qualquer
+     parte da aplicacao sem duplicar codigo SQL.
+
+   - Manutencao: se o banco for alterado (ex: mudar nome de coluna),
+     so os DAOs precisam ser ajustados, a interface nao e afetada.
+
+   - Seguranca: o uso de consultas parametrizadas com %s impede
+     ataques de SQL injection.
+
+   - Testabilidade: os DAOs podem ser testados isoladamente,
+     simulando o banco de dados.
+
+7. CONSULTAS EXIGIDAS PELO TRABALHO
+
+   JOIN:
+      SELECT e.id_emprestimo, u.nome AS usuario, f.nome AS funcionario
+      FROM emprestimo e
+      JOIN usuario u ON e.cpf = u.cpf
+      JOIN funcionario f ON e.matricula = f.matricula
+
+   GROUP BY:
+      SELECT l.isbn, l.titulo, COUNT(c.id_emprestimo) AS total
+      FROM livro l
+      LEFT JOIN contem c ON l.isbn = c.isbn
+      GROUP BY l.isbn, l.titulo
+      ORDER BY total DESC
+
+   JOIN + GROUP BY:
+      SELECT u.cpf, u.nome, COUNT(m.id_multa) AS qtd, SUM(m.valor) AS total
+      FROM usuario u
+      JOIN emprestimo e ON u.cpf = e.cpf
+      JOIN multa m ON e.id_emprestimo = m.id_emprestimo
+      GROUP BY u.cpf, u.nome
